@@ -100,27 +100,41 @@ class BlackjackGame:
     def player_turn(self):
         while True:
             self.show_hands()
-            move = input("\nDo you want to (h)it or (s)tand? ").lower()
+            player_total = self.player_hand.calculate_value()
+
+            # Offer double down option if the player has 9, 10, or 11
+            if player_total in [9, 10, 11]:
+                move = input("\nDo you want to (h)it, (s)tand, or (d)ouble down? ").lower()
+            else:
+                move = input("\nDo you want to (h)it or (s)tand? ").lower()
+
             if move == 'h':
                 self.player_hand.add_card(self.deck.deal_card())
                 if self.player_hand.calculate_value() > 21:
-                    self.show_hands()
-                    print("Bust! You lose.")
-                    return False
+                    return 
             elif move == 's':
                 return True
+            elif move == 'd' and player_total in [9, 10, 11]:
+                self.bet *= 2
+                print(f"Your bet is now doubled to ${self.bet}.")
+                self.player_hand.add_card(self.deck.deal_card())
+                return 
             else:
-                print("Invalid input, please enter 'h' to hit or 's' to stand.")
+                print("Invalid input, please enter 'h' to hit, 's' to stand, or 'd' to double down.")
+
 
     def dealer_turn(self):
-        while self.dealer_hand.calculate_value() < 17:
-            self.dealer_hand.add_card(self.deck.deal_card())
+        if self.player_hand.calculate_value() <= 21:
+            while self.dealer_hand.calculate_value() < 17:
+                self.dealer_hand.add_card(self.deck.deal_card())
 
     def determine_winner(self):
         player_total = self.player_hand.calculate_value()
         dealer_total = self.dealer_hand.calculate_value()
 
-        if dealer_total > 21:
+        if player_total > 21:
+            print("Bust! You lose.")
+        elif dealer_total > 21:
             print("Dealer busts! You win!")
         elif player_total > dealer_total:
             print(f"You win ${self.bet * 2.25:.2f}")
@@ -137,9 +151,7 @@ class BlackjackGame:
         if self.check_blackjack():
             return  # Player wins with a blackjack, no need to continue
 
-        if not self.player_turn():
-            return
-
+        self.player_turn()
         self.dealer_turn()
         self.show_hands(show_dealer_card=True)
         self.determine_winner()
