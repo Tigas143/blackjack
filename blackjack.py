@@ -57,21 +57,21 @@ class BlackjackGame:
         self.deck = Deck()
         self.player_hands = []
         self.dealer_hand = Hand()
-        self.bet = 0
-        self.split_bets = []  # To keep track of bets for split hands
+        self.bets = []  # To keep track of bets for each hand
 
-    def ask_for_bet(self):
+    def ask_for_bet(self, hand):
         while True:
             try:
-                self.bet = int(input("Enter your bet amount: "))
-                if self.bet > 0:
-                    break
+                bet = int(input("Enter your bet amount for Hand "+ str(hand) +":"))
+                if bet > 0:
+                    return bet
                 else:
                     print("Bet must be a positive number.")
             except ValueError:
                 print("Please enter a valid number.")
 
     def player_deal(self):
+        hand = 1
         while True:
             num_hands = input("How many hands do you want to play? ")
             if num_hands.isdigit() and int(num_hands) > 0:
@@ -79,12 +79,15 @@ class BlackjackGame:
                 break
             else:
                 print("Please enter a valid positive number.")
-        for player_hand in range(int(num_hands)):
+        for _ in range(num_hands):
             self.player_hands.append(Hand())
+            self.bets.append(self.ask_for_bet(hand))  # Ask for a bet for each hand
+            hand +=1
         for player_hand in self.player_hands:
             player_hand.add_card(self.deck.deal_card())
         for player_hand in self.player_hands:
             player_hand.add_card(self.deck.deal_card())
+
     def dealer_deal(self):
         self.dealer_hand.add_card(self.deck.deal_card())
         self.dealer_hand.add_card(self.deck.deal_card())
@@ -92,7 +95,7 @@ class BlackjackGame:
     def show_hands(self, show_dealer_card=False):
         hand = 1
         for player_hand in self.player_hands:
-            print("\n"+"Hand "+ str(hand) +":", ", ".join(map(str, player_hand.cards)), f"Value: {player_hand.calculate_value()}")
+            print(f"\nHand {hand}: {', '.join(map(str, player_hand.cards))}, Value: {player_hand.calculate_value()}, Bet: ${self.bets[hand-1]}")
             hand += 1
         if show_dealer_card:
             print("Dealer's hand:", ", ".join(map(str, self.dealer_hand.cards)), f"Value: {self.dealer_hand.calculate_value()}")
@@ -108,12 +111,13 @@ class BlackjackGame:
             if player_blackjack:
                 self.show_hands(show_dealer_card=True)
                 if dealer_showing_ten_or_ace:
-                    print("Hand "+ str(hand) + ": Player has Blackjack! Dealer is showing a card valued 10 or Ace")
+                    print(f"Hand {hand}: Player has Blackjack! Dealer is showing a card valued 10 or Ace")
                 else:
-                    print("Hand "+ str(hand) + f": Player has Blackjack! You win ${self.bet * 2.25:.2f}")
+                    print(f"Hand {hand}: Player has Blackjack! You win ${self.bets[hand-1] * 2.25:.2f}")
                     self.player_hands.pop(hand - 1)
-                    
+                    self.bets.pop(hand - 1)
             hand += 1
+
     def split_hand(self, hand_index):
         # Split the hand into two hands
         card_to_split = self.player_hands[hand_index].cards.pop()
@@ -122,8 +126,8 @@ class BlackjackGame:
         self.player_hands[hand_index].add_card(self.deck.deal_card())
         new_hand.add_card(self.deck.deal_card())
         self.player_hands.append(new_hand)
-        self.split_bets.append(self.bet)  # Track the bet for the new hand
-    
+        self.bets.append(self.bets[hand_index])  # The bet for the new hand is the same as the original hand
+
     def player_turn(self):
         hand = 1
         for i, player_hand in enumerate(self.player_hands):
@@ -133,12 +137,11 @@ class BlackjackGame:
                 self.show_hands()
                 # Offer options for hit, stand, double down, or split if possible
                 if player_hand.can_split():
-                    move = input(
-                        "\n" + "Hand " + str(hand) + ": Do you want to (h)it, (s)tand, (d)ouble down, or (p)split? ").lower()
+                    move = input(f"\nHand {hand}: Do you want to (h)it, (s)tand, (d)ouble down, or (p)split? ").lower()
                 elif player_total in [9, 10, 11]:
-                    move = input("\n" + "Hand " + str(hand) + ": Do you want to (h)it, (s)tand, or (d)ouble down? ").lower()
+                    move = input(f"\nHand {hand}: Do you want to (h)it, (s)tand, or (d)ouble down? ").lower()
                 else:
-                    move = input("\n" + "Hand " + str(hand) + ": Do you want to (h)it or (s)tand? ").lower()
+                    move = input(f"\nHand {hand}: Do you want to (h)it or (s)tand? ").lower()
 
                 if move == 'h':
                     player_hand.add_card(self.deck.deal_card())
@@ -147,8 +150,8 @@ class BlackjackGame:
                 elif move == 's':
                     turn = False
                 elif move == 'd' and player_total in [9, 10, 11]:
-                    self.bet *= 2
-                    print("Hand " + str(hand) + f"Your bet is now doubled to ${self.bet}.")
+                    self.bets[i] *= 2
+                    print(f"Hand {hand}: Your bet is now doubled to ${self.bets[i]}.")
                     player_hand.add_card(self.deck.deal_card())
                     turn = False
                 elif move == 'p' and player_hand.can_split():
@@ -159,37 +162,30 @@ class BlackjackGame:
             hand += 1
 
     def dealer_turn(self):
-        counter = 0
-        for player_hand in self.player_hands:
-            if player_hand.calculate_value() == 21:
-                counter += 1
-        if len(self.player_hands) != counter:
-            while self.dealer_hand.calculate_value() < 17:
-                self.dealer_hand.add_card(self.deck.deal_card())
+        while self.dealer_hand.calculate_value() < 17:
+            self.dealer_hand.add_card(self.deck.deal_card())
 
     def determine_winner(self):
         hand = 1
         print("\n")
-        for player_hand in self.player_hands:
+        for i, player_hand in enumerate(self.player_hands):
             player_total = player_hand.calculate_value()
             dealer_total = self.dealer_hand.calculate_value()
-
-            if player_total > 21:
-                print("Hand "+ str(hand) + ": Bust! You lose.")
+            if player_hand.has_blackjack() and not self.dealer_hand.has_blackjack:
+                print(f"Hand {hand}: Player has Blackjack! You win ${self.bets[i] * 2.25:.2f}")
+            elif player_total > 21:
+                print(f"Hand {hand}: Bust! You lose.")
             elif dealer_total > 21:
-                print("Hand "+ str(hand) + f": Dealer busts! You win ${self.bet * 2:.2f}")
+                print(f"Hand {hand}: Dealer busts! You win ${self.bets[i] * 2:.2f}")
             elif player_total > dealer_total:
-                if player_hand.has_blackjack():
-                    print("Hand "+ str(hand) + f": Player has Blackjack! You win ${self.bet * 2.25:.2f}")
-                print("Hand "+ str(hand) + f": You win ${self.bet * 2:.2f}")
+                print(f"Hand {hand}: You win ${self.bets[i] * 2:.2f}")
             elif player_total < dealer_total:
-                print("Hand "+ str(hand) + ": Dealer wins! You lose.")
+                print(f"Hand {hand}: Dealer wins! You lose.")
             else:
-                print("Hand "+ str(hand) + ": It's a tie!")
+                print(f"Hand {hand}: It's a tie!")
             hand += 1
-    
+
     def play(self):
-        self.ask_for_bet()
         self.player_deal()
         self.dealer_deal()
 
